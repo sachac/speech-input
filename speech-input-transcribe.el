@@ -28,20 +28,24 @@
 (defvar speech-input-transcribe-model "Systran/faster-whisper-base.en")
 (defvar speech-input-transcribe-language "en")
 (defvar speech-input-transcribe-api-key "Not needed for local")
-(defvar speech-input-transcribe-curl-command "curl")
-(defun speech-input-transcribe-sync (filename)
+(defvar speech-input-transcribe-curl-command '("curl"))
+(defvar speech-input-transcribe-prompt nil)
+
+(defun speech-input-transcribe-sync (filename &optional prompt)
   "Get the text for FILENAME."
   (with-temp-buffer
     (apply 'call-process
-           speech-input-transcribe-curl-command
+           (car speech-input-transcribe-curl-command)
            nil t nil
            "-s"
            speech-input-transcribe-url
            (append
+            (cdr speech-input-transcribe-curl-command)
             (list "-H" (format "Authorization: Bearer %s" speech-input-transcribe-api-key))
             (list "-H" "Content-Type: multipart/form-data")
             (list "-F" (concat "file=@" (expand-file-name filename)))
             (list "-F" "response_format=json")
+            (list "-F" (concat "prompt=" (if prompt (url-hexify-string prompt) "")))
             (list "-F" (concat "model=" speech-input-transcribe-model))))
     (goto-char (point-min))
     (alist-get 'text (json-parse-buffer :object-type 'alist))))
