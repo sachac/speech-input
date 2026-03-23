@@ -46,7 +46,5 @@
     (goto-char (point-min))
     (alist-get 'text (json-parse-buffer :object-type 'alist))))
 
-;; (mpv-play "~/recordings/whisper/2026-03-04-10-24-29.wav")
-;; (speech-input-transcribe-sync "~/recordings/whisper/2026-03-04-10-24-29.wav")
 (provide 'speech-input-transcribe)
 ;;; speech-input-transcribe.el ends here
