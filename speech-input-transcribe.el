@@ -24,38 +24,27 @@
 
 ;;; Code:
 
-
 (defvar speech-input-transcribe-url "http://localhost:8001/v1/audio/transcriptions")
 (defvar speech-input-transcribe-model "Systran/faster-whisper-base.en")
 (defvar speech-input-transcribe-language "en")
 (defvar speech-input-transcribe-api-key "Not needed for local")
-
+(defvar speech-input-transcribe-curl-command "curl")
 (defun speech-input-transcribe-sync (filename)
   "Get the text for FILENAME."
-  (let* ((boundary (format "%s%d" (make-string 20 ?-) (time-to-seconds)))
-         (url-request-method "POST")
-         (url-request-extra-headers
-          (append
-           (list
-            (cons "Content-Type"
-                  (concat "multipart/form-data; boundary=" boundary))
-            (cons "Authorization" (concat "Bearer " speech-input-transcribe-api-key)))
-           url-request-extra-headers))
-         (url-request-data
-          (mm-url-encode-multipart-form-data
-           `(("file" .
-              (("name" . "file")
-               ("filename" . ,(file-name-nondirectory filename))
-               ("content-type" . "audio/wav")
-               ("filedata" . ,(with-temp-buffer
-                                (insert-file-contents-literally filename)
-                                (buffer-string)))))
-             ("model" . ,speech-input-transcribe-model)))))
-    (with-current-buffer (url-retrieve-synchronously speech-input-transcribe-url)
-      (goto-char (point-min))
-      (re-search-forward "^$")
-      (prog1 (buffer-substring (point) (point-max))
-        (kill-buffer (current-buffer))))))
+  (with-temp-buffer
+    (apply 'call-process
+           speech-input-transcribe-curl-command
+           nil t nil
+           "-s"
+           speech-input-transcribe-url
+           (append
+            (list "-H" (format "Authorization: Bearer %s" speech-input-transcribe-api-key))
+            (list "-H" "Content-Type: multipart/form-data")
+            (list "-F" (concat "file=@" (expand-file-name filename)))
+            (list "-F" "response_format=json")
+            (list "-F" (concat "model=" speech-input-transcribe-model))))
+    (goto-char (point-min))
+    (alist-get 'text (json-parse-buffer :object-type 'alist))))
 
 ;; (mpv-play "~/recordings/whisper/2026-03-04-10-24-29.wav")
 ;; (speech-input-transcribe-sync "~/recordings/whisper/2026-03-04-10-24-29.wav")
