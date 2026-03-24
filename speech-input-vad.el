@@ -27,7 +27,7 @@
 (defvar speech-input-vad-events-process nil)
 (defvar speech-input-vad-events-command
   `(,(expand-file-name ".venv/bin/python" load-file-name)
-    "vad-events.py"))
+    ,(expand-file-name "vad-events.py" load-file-name)))
 
 (defvar speech-input-vad-on-end-functions nil)
 (defvar speech-input-vad-on-start-functions nil)
