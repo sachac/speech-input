@@ -28,7 +28,10 @@
   (let ((categories '(("Org Mode" "Org" "Org Mode")
                       "Other"
                       "Emacs Lisp"
+                      "Writing"
+                      "Appearance"
                       "Coding"
+                      "Community"
                       ("Emacs configuration" "Config" "Configuration"))))
     (should (equal (speech-input-match-all "Coding Configuration Other" categories t)
                    '("Coding" "Emacs configuration" "Other")))
@@ -37,7 +40,9 @@
     (should (equal (speech-input-match-all "Org Coding Configuration Other" categories t)
                    '("Org Mode" "Coding" "Emacs configuration" "Other")))
     (should (equal (speech-input-match-all "Emax Lisp Coding Configuration Other" categories t)
-                   '("Emacs Lisp" "Coding" "Emacs configuration" "Other")))))
+                   '("Emacs Lisp" "Coding" "Emacs configuration" "Other")))
+    (should (equal (speech-input-match-all "Writing Appearance Community" categories t)
+                   '("Writing" "Appearance" "Community")))))
 
 (ert-deftest speech-input-match-first-part ()
   "Tests `speech-input-match-first-part'."

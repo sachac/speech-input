@@ -141,7 +141,6 @@ Return a list of options."
         (setq text (cdr result))))
     (nreverse results)))
 
-
 (defun speech-input-from-list (prompt collection callback &optional must-match normalize-fn)
   "Choose the closest entry from COLLECTION and call CALLBACK with the result and the actual text.
 COLLECTION can be a list of strings, a list of (result-string . candidate-string),
@@ -151,7 +150,8 @@ or the speech recognition result otherwise."
   (when prompt (message "%s" prompt))
   (speech-input-vad-record-one-turn
    (lambda (filename)
-     (let* ((prompt (mapconcat
+     (let* ((collection (speech-input--reshape-collection collection))
+            (prompt (mapconcat
                      (lambda (o)
                        (string-join (cdr o) ", "))
                      collection ", "))
@@ -163,25 +163,28 @@ or the speech recognition result otherwise."
                 (speech-input-match-in-list text collection must-match normalize-fn)
                 text)))))
 
-(defun speech-input-multiple-from-list (prompt collection callback &optional must-match)
+(defun speech-input-multiple-from-list (prompt collection each-callback after-all-callback &optional must-match)
   "Call CALLBACK for each recognized item."
   (when prompt (message "%s" prompt))
   (speech-input-vad-record-one-turn
    (lambda (filename)
-     (let* ((prompt (mapconcat
+     (let* ((collection (speech-input--reshape-collection collection))
+            (prompt (mapconcat
                      (lambda (o)
                        (string-join (cdr o) ", "))
                      collection ", "))
             (text (speech-input-transcribe-sync
                    filename
-                   prompt)))
-
-
+                   prompt))
+            (commands (speech-input-match-all text collection must-match)))
        (delete-file filename)
-       (funcall callback
-                (speech-input-match-in-list text collection must-match normalize-fn)
-                text))))
-  )
+       (when each-callback
+         (seq-reduce (lambda (prev value)
+                       (funcall each-callback value prev))
+                     commands nil))
+       (when after-all-callback
+         (funcall after-all-callback commands))))))
+
 ;; (speech-input-from-list "Yes or no?" '("Yes" "No") (lambda (s) (message "%s" s)))
 ;; (speech-input-from-list "Yes or no?" '(("Yes" "Yes" "Yup" "Yeah" "Uh huh" "Sure" "Go ahead") ("No" "No" "Nope")) (lambda (s) (message "%s" s)))
 
