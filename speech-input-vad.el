@@ -25,20 +25,33 @@
 ;;; Code:
 
 (defvar speech-input-vad-events-process nil)
+(defvar speech-input-vad-events-dir (file-name-directory (or load-file-name (buffer-file-name))))
 (defvar speech-input-vad-events-command
-  `(,(expand-file-name ".venv/bin/python" load-file-name)
-    ,(expand-file-name "vad-events.py" load-file-name)))
+  `(,(expand-file-name ".venv/bin/python" speech-input-vad-events-dir)
+    ,(expand-file-name "vad-events.py" speech-input-vad-events-dir)))
 
 (defvar speech-input-vad-on-end-functions nil)
 (defvar speech-input-vad-on-start-functions nil)
+(defvar speech-input-vad-debug nil "Non-nil means display a message on start and end.")
+
+(defun speech-input-vad-toggle-debug ()
+  "Toggle `speech-input-vad-debug'."
+  (interactive)
+  (setq speech-input-vad-debug (not speech-input-vad-debug))
+  (message (if speech-input-vad-debug
+               "Debugging VAD."
+             "Stopped debugging VAD.")))
 
 (defun speech-input-vad-events-filter (proc string)
   (cond
    ((string-match "^START" string)
+    (when speech-input-vad-debug (message "speech start"))
     (run-hooks 'speech-input-vad-on-start-functions))
    ((string-match "^END" string)
+    (when speech-input-vad-debug (message "speech stop"))
     (run-hooks 'speech-input-vad-on-end-functions))))
 
+;;;###autoload
 (defun speech-input-vad-start ()
   "Start the process if it's not already running."
   (interactive)
@@ -66,6 +79,7 @@
   (remove-hook 'speech-input-vad-on-end-functions 'speech-input-vad-stop-recording-once)
   (speech-input-stop-recording))
 
+;;;###autoload
 (defun speech-input-vad-record-one-turn (callback &optional filename)
   "Call CALLBACK with the filename of the recording."
   (speech-input-vad-start)
