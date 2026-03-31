@@ -32,16 +32,17 @@
                       "Appearance"
                       "Coding"
                       "Community"
-                      ("Emacs configuration" "Config" "Configuration"))))
-    (should (equal (speech-input-match-all "Coding Configuration Other" categories t)
+                      ("Emacs configuration" "Config" "Configuration")))
+        (speech-input-string-distance-threshold 0.3))
+    (should (equal (speech-input-match-all "Coding Configuration Other" categories)
                    '("Coding" "Emacs configuration" "Other")))
-    (should (equal (speech-input-match-all "Org Mode Coding Configuration Other" categories t)
+    (should (equal (speech-input-match-all "Org Mode Coding Configuration Other" categories)
                    '("Org Mode" "Coding" "Emacs configuration" "Other")))
-    (should (equal (speech-input-match-all "Org Coding Configuration Other" categories t)
+    (should (equal (speech-input-match-all "Org Coding Configuration Other" categories)
                    '("Org Mode" "Coding" "Emacs configuration" "Other")))
-    (should (equal (speech-input-match-all "Emax Lisp Coding Configuration Other" categories t)
+    (should (equal (speech-input-match-all "Emax Lisp Coding Configuration Other" categories)
                    '("Emacs Lisp" "Coding" "Emacs configuration" "Other")))
-    (should (equal (speech-input-match-all "Writing Appearance Community" categories t)
+    (should (equal (speech-input-match-all "Writing Appearance Community" categories)
                    '("Writing" "Appearance" "Community")))))
 
 (ert-deftest speech-input-match-first-part ()
@@ -51,14 +52,20 @@
                       "Emacs Lisp"
                       "Coding"
                       ("Emacs configuration" "Config" "Configuration"))))
-    (should (equal (speech-input-match-first-part "Coding Configuration Other" categories t)
-                   '("Coding" . "Configuration Other")))
-    (should (equal (speech-input-match-first-part "Org Mode Coding Configuration Other" categories t)
-                   '("Org Mode" . "Coding Configuration Other")))
-    (should (equal (speech-input-match-first-part "Org Coding Configuration Other" categories t)
-                   '("Org Mode" . "Coding Configuration Other")))
-    (should (equal (speech-input-match-first-part "Emax Lisp Coding Configuration Other" categories t)
-                   '("Emacs Lisp" . "Coding Configuration Other")))))
+    (let ((speech-input-string-distance-threshold 0)) ; exact match only
+      (should (equal (speech-input-match-first-part "Emax Lisp Coding Configuration Other" categories)
+                     '(nil . "Emax Lisp Coding Configuration Other")))
+      (should (equal (speech-input-match-first-part "Coding Configuration Other" categories)
+                     '("Coding" . "Configuration Other")))
+      (should (equal (speech-input-match-first-part "Org Mode Coding Configuration Other" categories)
+                     '("Org Mode" . "Coding Configuration Other")))
+      (should (equal (speech-input-match-first-part "Org Coding Configuration Other" categories)
+                     '("Org Mode" . "Coding Configuration Other"))))
+    (let ((speech-input-string-distance-threshold 0.3))
+      (should (equal (speech-input-match-first-part "Emax Lisp Coding Configuration Other" categories)
+                     '("Emacs Lisp" . "Coding Configuration Other"))))))
+
+
 
 
 (ert-deftest speech-input-match-in-list ()

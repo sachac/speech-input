@@ -43,7 +43,7 @@
   "Simplify S for easier comparison."
   (downcase (replace-regexp-in-string "[^A-Za-z0-9 ]+" " " s)))
 
-(defvar speech-input-string-distance-threshold 0.2)
+(defvar speech-input-string-distance-threshold 0.3)
 
 (defun speech-input--reshape-collection (collection)
   "Make collection a consistent shape of ((result-string candidate1 candidate2...) ...)"
@@ -57,7 +57,7 @@
 
 (defun speech-input-get-list-distances (text collection)
   "Find the item in COLLECTION that is closest to TEXT.
-Return a list of (distance candidate row)"
+Return a list of (distance candidate main-value)"
   (let* ((collection (speech-input--reshape-collection collection))
          (normalized (speech-input-normalize-string text)))
     (sort
@@ -75,14 +75,29 @@ Return a list of (distance candidate row)"
       collection)
      :key 'car)))
 
-(defun speech-input-match-in-list (text collection &optional must-match)
+(defun speech-input-string-approx (text other-text)
+  "Return non-nil if TEXT is approximately the same as OTHER-TEXT.
+TEXT can also be the previously-calculated distance."
+  (when (stringp text)
+    (setq text (speech-input-normalize-string text))
+    (setq other-text (speech-input-normalize-string other-text)))
+  (or (null speech-input-string-distance-threshold)
+      (<=
+       (/ (if (numberp text)
+              text
+            (string-distance text other-text))
+          (* 1.0
+             (if (numberp text)
+                 (length other-text)
+               (max (length text) (length other-text)))))
+       speech-input-string-distance-threshold)))
+
+(defun speech-input-match-in-list (text collection)
   "Return the best-matching candidate from collection."
   (let ((by-distance (speech-input-get-list-distances text collection)))
-    (if (or must-match
-            (<
-             (/ (elt (car by-distance) 0)
-                (* 1.0 (max (length text) (length (elt (car by-distance) 1)))))
-             speech-input-string-distance-threshold))
+    (if (speech-input-string-approx
+         (elt (car by-distance) 0)
+         (elt (car by-distance) 1))
         (elt (car by-distance) 2)
       text)))
 
@@ -93,20 +108,23 @@ The candidate may involve multiple words."
   (let* ((words (split-string text))
          (normalized-words (mapcar #'speech-input-normalize-string words))
          (by-distance
-          (seq-mapcat
-           (lambda (cand-group)
-             (mapcar
-              (lambda (o)
-                (let* ((normalized (speech-input-normalize-string o))
-                       (cand-words (split-string normalized))
-                       ;; Get that number of words; TODO: fuzz
-                       (prefix (string-join (seq-take normalized-words (length cand-words)) " ")))
-                  (list
-                   (string-distance normalized prefix)
-                   o
-                   (car cand-group))))
-              (cdr cand-group)))
-           (speech-input--reshape-collection collection))))
+          (seq-filter
+           (lambda (o)
+             (speech-input-string-approx (elt o 0) (elt o 1)))
+           (seq-mapcat
+            (lambda (cand-group)
+              (mapcar
+               (lambda (o)
+                 (let* ((normalized (speech-input-normalize-string o))
+                        (cand-words (split-string normalized))
+                        ;; Get that number of words; TODO: fuzz
+                        (prefix (string-join (seq-take normalized-words (length cand-words)) " ")))
+                   (list
+                    (string-distance normalized prefix)
+                    o
+                    (car cand-group))))
+               (cdr cand-group)))
+            (speech-input--reshape-collection collection)))))
     (sort by-distance
           :lessp
           (lambda (a b)
@@ -118,35 +136,35 @@ The candidate may involve multiple words."
              ((< (length (elt a 1)) (length (elt b 1))) nil)
              (t t))))))
 
-(defun speech-input-match-first-part (text collection &optional _must-match)
+(defun speech-input-match-first-part (text collection)
   "Try to match COLLECTION against the first part of TEXT.
 The candidate may involve multiple words.
 Return (candidate . remaining-text)."
   (let* ((words (split-string text))
          (distances (speech-input-get-first-part-distances text collection)))
-    (cons
-     (elt (car distances) 2)
-     (string-join
-      (seq-drop words (length (split-string (elt (car distances) 1))))
-      " "))))
+    (if (car distances)
+        (cons
+         (elt (car distances) 2)
+         (string-join
+          (seq-drop words (length (split-string (elt (car distances) 1))))
+          " "))
+      (cons nil text))))
 
-(defun speech-input-match-all (text collection &optional _must-match)
+(defun speech-input-match-all (text collection)
   "Try to match COLLECTION against TEXT.
 The candidate may involve multiple words.
 Return a list of options."
   (let (results)
     (while (not (string= text ""))
-      (let ((result (speech-input-match-first-part text collection _must-match)))
+      (let ((result (speech-input-match-first-part text collection)))
         (push (car result) results)
         (setq text (cdr result))))
     (nreverse results)))
 
-(defun speech-input-from-list (prompt collection callback &optional must-match normalize-fn)
+(defun speech-input-from-list (prompt collection callback &optional normalize-fn)
   "Choose the closest entry from COLLECTION and call CALLBACK with the result and the actual text.
 COLLECTION can be a list of strings, a list of (result-string . candidate-string),
-or a list of (result-string candidate1 candidate2 candidate3...).
-If MUST-MATCH is nil, closest match is returned within `speech-input-string-distance-threshold',
-or the speech recognition result otherwise."
+or a list of (result-string candidate1 candidate2 candidate3...)."
   (when prompt (message "%s" prompt))
   (speech-input-vad-record-one-turn
    (lambda (filename)
@@ -157,13 +175,12 @@ or the speech recognition result otherwise."
                      collection ", "))
             (text (speech-input-transcribe-sync
                    filename
-                   prompt)))
-       (delete-file filename)
+                   prompt t)))
        (funcall callback
                 (speech-input-match-in-list text collection must-match normalize-fn)
                 text)))))
 
-(defun speech-input-multiple-from-list (prompt collection each-callback after-all-callback &optional must-match)
+(defun speech-input-multiple-from-list (prompt collection each-callback after-all-callback)
   "Call CALLBACK for each recognized item."
   (when prompt (message "%s" prompt))
   (speech-input-vad-record-one-turn
@@ -175,15 +192,14 @@ or the speech recognition result otherwise."
                      collection ", "))
             (text (speech-input-transcribe-sync
                    filename
-                   prompt))
-            (commands (speech-input-match-all text collection must-match)))
-       (delete-file filename)
+                   prompt t))
+            (commands (speech-input-match-all text collection)))
        (when each-callback
          (seq-reduce (lambda (prev value)
                        (funcall each-callback value prev))
                      commands nil))
        (when after-all-callback
-         (funcall after-all-callback commands))))))
+         (funcall after-all-callback commands text))))))
 
 ;; (speech-input-from-list "Yes or no?" '("Yes" "No") (lambda (s) (message "%s" s)))
 ;; (speech-input-from-list "Yes or no?" '(("Yes" "Yes" "Yup" "Yeah" "Uh huh" "Sure" "Go ahead") ("No" "No" "Nope")) (lambda (s) (message "%s" s)))
