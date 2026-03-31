@@ -31,24 +31,43 @@
 (defvar speech-input-transcribe-curl-command '("curl"))
 (defvar speech-input-transcribe-prompt nil)
 
-(defun speech-input-transcribe-sync (filename &optional prompt)
-  "Get the text for FILENAME."
+(defun speech-input-transcribe-curl-args (filename prompt)
+  (append
+   (list "-s" speech-input-transcribe-url)
+   (cdr speech-input-transcribe-curl-command)
+   (list
+    "-H" (format "Authorization: Bearer %s" speech-input-transcribe-api-key)
+    "-H" "Content-Type: multipart/form-data"
+    "-F" (concat "file=@" (expand-file-name filename))
+    "-F" "response_format=json"
+    "-F" (concat "prompt=" (if prompt (url-hexify-string prompt) ""))
+    "-F" (concat "model=" speech-input-transcribe-model))))
+
+(defun speech-input-transcribe-sync (filename &optional prompt delete-after)
+  (speech-input-transcribe filename nil prompt delete-after))
+
+(defun speech-input-transcribe (filename &optional callback prompt delete-after)
+  "Get the text for FILENAME.
+If PROMPT is specified, pass it to the transcription process.
+If DELETE-AFTER is non-nil, delete the audio file."
   (with-temp-buffer
-    (apply 'call-process
-           (car speech-input-transcribe-curl-command)
-           nil t nil
-           "-s"
-           speech-input-transcribe-url
-           (append
-            (cdr speech-input-transcribe-curl-command)
-            (list "-H" (format "Authorization: Bearer %s" speech-input-transcribe-api-key))
-            (list "-H" "Content-Type: multipart/form-data")
-            (list "-F" (concat "file=@" (expand-file-name filename)))
-            (list "-F" "response_format=json")
-            (list "-F" (concat "prompt=" (if prompt (url-hexify-string prompt) "")))
-            (list "-F" (concat "model=" speech-input-transcribe-model))))
+    (if (or (eq callback 'sync) (null callback))
+        (apply 'call-process
+               (car speech-input-transcribe-curl-command)
+               nil t nil
+               (speech-input-transcribe-curl-args filename prompt))
+      (apply 'start-process
+             "transcribe"
+             (current-buffer)
+             (car speech-input-transcribe-curl-command)
+             (speech-input-transcribe-curl-args filename prompt)))
     (goto-char (point-min))
-    (alist-get 'text (json-parse-buffer :object-type 'alist))))
+    (let ((text (alist-get 'text (json-parse-buffer :object-type 'alist))))
+      (when callback
+        (funcall callback
+                 text))
+      (when delete-after (delete-file filename))
+      text)))
 
 (provide 'speech-input-transcribe)
 ;;; speech-input-transcribe.el ends here
