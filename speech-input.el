@@ -177,7 +177,7 @@ or a list of (result-string candidate1 candidate2 candidate3...)."
                    filename
                    prompt t)))
        (funcall callback
-                (speech-input-match-in-list text collection must-match normalize-fn)
+                (speech-input-match-in-list text collection)
                 text)))))
 
 (defun speech-input-multiple-from-list (prompt collection each-callback after-all-callback)
@@ -237,6 +237,36 @@ or a list of (result-string candidate1 candidate2 candidate3...)."
   (remove-hook 'speech-input-vad-on-end-functions 'speech-input-vad-stop-recording-once)
   (when (and speech-input-recording-filename (file-exists-p speech-input-recording-filename))
     (delete-file speech-input-recording-filename)))
+
+(defun speech-input-curl-json (url headers params &optional callback)
+  "Make curl request to URL with HEADERS and PARAMS and process response.
+If CALLBACK is specified, request asynchronously and call CALLBACK with
+the JSON object."
+  (let ((command
+         `("curl" "-s"
+           ,url
+           ,@(mapcan (lambda (h) (list "-H" h)) headers)
+           ,@(mapcan (lambda (p) (list "-F" p)) params))))
+    (if (functionp callback)
+        (make-process
+         :name "speech-input-transcribe"
+         :command command
+         :coding 'utf-8
+         :sentinel (lambda (process event)
+                     (funcall
+                      callback
+                      (with-current-buffer (process-buffer process)
+                        (goto-char (point-min))
+                        (json-parse-buffer :object-type 'alist
+                                           :array-type 'list)))))
+      (with-temp-buffer
+        (apply #'call-process
+               (car command)
+               nil t nil
+               (cdr command))
+        (goto-char (point-min))
+        (json-parse-buffer :object-type 'alist
+                           :array-type 'list)))))
 
 (provide 'speech-input)
 ;;; speech-input.el ends here
