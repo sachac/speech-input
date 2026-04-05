@@ -21,10 +21,20 @@
 ;;; Commentary:
 
 ;; This module is for managing a speaches.ai server running locally.
+;; Follow the instructions at https://speaches.ai/installation/ to install the server
+;; and then customize `speech-input-speaches-command' and `speech-input-speaches-base-url' accordingly.
 
 ;;; Code:
 
 (require 'request)
+
+(defcustom speech-input-speaches-command
+  `("docker" "compose" "-f"
+    ,(expand-file-name "~/vendor/speaches-cuda/compose.cuda-cdi.yaml")
+    "up")
+  "Command to start the Speaches server.
+Change this to match your installation."
+  :type '(repeat string))
 
 (defcustom speech-input-speaches-base-url "http://localhost:8000"
   "URL of instance to use."
@@ -62,14 +72,6 @@ TASK can be \"automatic-speech-recognition\" or \"text-to-speech\"."
     :sync t))
 
 (defvar speech-input-speaches--process nil)
-
-(defcustom speech-input-speaches-command
-  `("docker" "compose" "-f"
-    ,(expand-file-name "~/vendor/speaches-cuda/compose.cuda-cdi.yaml")
-    "up")
-  "Command to start the Speaches server.
-Change this to match your installation."
-  :type '(repeat string))
 
 ;;;###autoload
 (defun speech-input-speaches-server-start ()
