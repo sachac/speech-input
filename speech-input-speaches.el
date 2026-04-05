@@ -23,6 +23,8 @@
 ;; This module is for managing a speaches.ai server running locally.
 ;; Follow the instructions at https://speaches.ai/installation/ to install the server
 ;; and then customize `speech-input-speaches-command' and `speech-input-speaches-base-url' accordingly.
+;;
+;; You will also need to update `speech-input-transcribe-url'
 
 ;;; Code:
 
