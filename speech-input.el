@@ -153,13 +153,17 @@ Return (candidate . remaining-text)."
 (defun speech-input-match-all (text collection)
   "Try to match COLLECTION against TEXT.
 The candidate may involve multiple words.
-Return a list of options."
+Return (list-of-options . remaining text)."
   (let (results)
-    (while (not (string= text ""))
-      (let ((result (speech-input-match-first-part text collection)))
-        (push (car result) results)
-        (setq text (cdr result))))
-    (nreverse results)))
+    (catch 'done
+      (while (not (string= text ""))
+        (let ((result (speech-input-match-first-part text collection)))
+          (if (car result)
+              (progn
+                (push (car result) results)
+                (setq text (cdr result)))
+            (throw 'done results)))))
+    (cons (nreverse results) text)))
 
 (defun speech-input-from-list (prompt collection callback &optional normalize-fn)
   "Choose the closest entry from COLLECTION and call CALLBACK with the result and the actual text.
