@@ -73,7 +73,7 @@
 (defun speech-input-vad-stop ()
   (interactive)
   (when (process-live-p speech-input-vad-events-process)
-    (stop-process speech-input-vad-events-process)))
+    (kill-process speech-input-vad-events-process)))
 
 (defun speech-input-vad-stop-recording-once ()
   (remove-hook 'speech-input-vad-on-end-functions 'speech-input-vad-stop-recording-once)
