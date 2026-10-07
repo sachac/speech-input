@@ -35,9 +35,8 @@
   (interactive)
   (speech-input-vad-record-one-turn
    (lambda (filename)
-     (let ((text (speech-input-transcribe-sync filename)))
-       (insert text)
-       (delete-file filename)))))
+     (let ((text (speech-input-transcribe filename nil t)))
+       (insert text)))))
 
 (defun speech-input-normalize-string (s)
   "Simplify S for easier comparison."
@@ -173,37 +172,46 @@ or a list of (result-string candidate1 candidate2 candidate3...)."
   (speech-input-vad-record-one-turn
    (lambda (filename)
      (let* ((collection (speech-input--reshape-collection collection))
-            (prompt (mapconcat
-                     (lambda (o)
-                       (string-join (cdr o) ", "))
-                     collection ", "))
-            (text (speech-input-transcribe-sync
+            (speech-input-transcribe-prompt
+             (mapconcat
+              (lambda (o)
+                (string-join (cdr o) ", "))
+              collection ", "))
+            (text (speech-input-transcribe
                    filename
-                   prompt t)))
+                   nil t)))
        (funcall callback
                 (speech-input-match-in-list text collection)
                 text)))))
 
-(defun speech-input-multiple-from-list (prompt collection each-callback after-all-callback)
-  "Call CALLBACK for each recognized item."
+(defun speech-input-multiple-from-list (prompt collection each-callback &optional after-all-callback)
+  "Match speech input against COLLECTION.
+
+Display PROMPT beforehand.
+Call EACH-CALLBACK for each recognized item.
+Call AFTER-ALL-CALLBACK with (recognized-options . remaining-text)."
   (when prompt (message "%s" prompt))
-  (speech-input-vad-record-one-turn
-   (lambda (filename)
-     (let* ((collection (speech-input--reshape-collection collection))
-            (prompt (mapconcat
-                     (lambda (o)
-                       (string-join (cdr o) ", "))
-                     collection ", "))
-            (text (speech-input-transcribe-sync
-                   filename
-                   prompt t))
-            (commands (speech-input-match-all text collection)))
-       (when each-callback
-         (seq-reduce (lambda (prev value)
-                       (funcall each-callback value prev))
-                     commands nil))
-       (when after-all-callback
-         (funcall after-all-callback commands text))))))
+  (condition-case nil
+      (speech-input-vad-record-one-turn
+       (lambda (filename)
+         (let* ((collection (speech-input--reshape-collection collection))
+                (speech-input-transcribe-prompt
+                 (mapconcat
+                  (lambda (o)
+                    (string-join (cdr o) ", "))
+                  collection ", "))
+                (text (speech-input-transcribe
+                       filename
+                       nil t))
+                (commands (speech-input-match-all text collection)))
+           (when each-callback
+             (seq-reduce (lambda (prev value)
+                           (funcall each-callback value prev))
+                         (car commands) nil))
+           (when after-all-callback
+             (funcall after-all-callback commands text)))))
+    (quit
+     (message "Interrupted"))))
 
 ;; (speech-input-from-list "Yes or no?" '("Yes" "No") (lambda (s) (message "%s" s)))
 ;; (speech-input-from-list "Yes or no?" '(("Yes" "Yes" "Yup" "Yeah" "Uh huh" "Sure" "Go ahead") ("No" "No" "Nope")) (lambda (s) (message "%s" s)))
