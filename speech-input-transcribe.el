@@ -25,7 +25,8 @@
 ;;; Code:
 
 (defcustom speech-input-transcribe-url "http://localhost:8000/v1/audio/transcriptions"
-  "URL of instance to use."
+  "URL of instance to use.
+If it is a function, call it with the filename and callback instead."
   :group 'speech-input)
 
 (defcustom speech-input-transcribe-api-key "not needed for local"
@@ -42,23 +43,33 @@
 (defun speech-input-transcribe-file-to-json (filename &optional callback delete-after)
   "Send FILENAME to the transcribe endpoint and return the result JSON.
 If CALLBACK is specified, transcribe asynchronously and call CALLBACK with the results.
-If DELETE-AFTER is non-nil, delete the audio file."
-  (prog1 (speech-input-curl-json
-          speech-input-transcribe-endpoint
-          (list (concat "Authorization: Bearer " speech-input-transcribe-api-key)
-                "Content-type: multipart/form-data")
-          (delq nil
-                (list (concat "model=" speech-input-transcribe-model)
-                      (concat "file=@" filename)
-                      "response_format=json"
-                      (if speech-input-transcribe-prompt
-                          (concat "prompt=" speech-input-transcribe-prompt)
-                        nil)))
-          (if (and (functionp callback) delete-after)
-              (lambda (result)
-                (delete-file filename)
-                (funcall callback result))
-            callback))
+If DELETE-AFTER is non-nil, delete the audio file.
+
+If `speech-input-transcribe-url' is a function, call it with the filename and callback instead."
+  (prog1
+			(if (stringp speech-input-transcribe-url)
+					(speech-input-curl-json
+					 speech-input-transcribe-url
+					 (list (concat "Authorization: Bearer " speech-input-transcribe-api-key)
+								 "Content-type: multipart/form-data")
+					 (delq nil
+								 (list (concat "model=" speech-input-transcribe-model)
+											 (concat "file=@" filename)
+											 "response_format=json"
+											 (if speech-input-transcribe-prompt
+													 (concat "prompt=" speech-input-transcribe-prompt)
+												 nil)))
+					 (if (and (functionp callback) delete-after)
+							 (lambda (result)
+								 (delete-file filename)
+								 (funcall callback result))
+						 callback))
+				(funcall speech-input-transcribe-url filename
+								 (if (and (functionp callback) delete-after)
+										 (lambda (result)
+											 (delete-file filename)
+											 (funcall callback result))
+									 callback)))
     (when (and delete-after (not (functionp callback)))
       (delete-file filename))))
 
@@ -67,11 +78,16 @@ If DELETE-AFTER is non-nil, delete the audio file."
   "Get the text for FILENAME.
 If CALLBACK is specified, transcribe asynchronously and call CALLBACK with the results.
 If DELETE-AFTER is non-nil, delete the audio file."
+	(interactive "FFile: ")
   (if (functionp callback)
       (speech-input-transcribe-file-to-json filename
                      (lambda (result)
                        (funcall callback (alist-get 'text result))))
-    (alist-get 'text (speech-input-transcribe-file-to-json filename))))
+		(let ((result (alist-get 'text (speech-input-transcribe-file-to-json filename))))
+			(when (called-interactively-p 'any)
+				(kill-new result)
+				(message "%s" result))
+			result)))
 
 (provide 'speech-input-transcribe)
 ;;; speech-input-transcribe.el ends here
