@@ -32,7 +32,7 @@
 
 (defcustom speech-input-speaches-command
   `("docker" "compose" "-f"
-    ,(expand-file-name "~/vendor/speaches-cuda/compose.cuda-cdi.yaml")
+    ,(expand-file-name "~/vendor/speaches/compose.yaml")
     "up")
   "Command to start the Speaches server.
 Change this to match your installation."
@@ -86,6 +86,12 @@ TASK can be \"automatic-speech-recognition\" or \"text-to-speech\"."
              :command speech-input-speaches-command
              :buffer (get-buffer-create "*speaches*")
              :stderr (get-buffer-create "*speaches-err*")))))
+
+(defun speech-input-speaches-server-stop ()
+  "Stop the process."
+  (interactive)
+  (when (process-live-p speech-input-speaches--process)
+		(kill-process speech-input-speaches--process)))
 
 (provide 'speech-input-speaches)
 ;;; speech-input-speaches.el ends here
