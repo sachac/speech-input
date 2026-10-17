@@ -27,6 +27,11 @@
 (require 'speech-input-transcribe)
 (require 'speech-input-vad)
 
+(defcustom speech-input-filler-words '("uh" "um")
+  "List of filler words."
+  :type '(repeat string)
+  :group 'speech-input)
+
 (defvar speech-input-recording-process nil)
 (defvar speech-input-recording-command '("ffmpeg" "-y" "-f" "pulse" "-i" "default" "-f" "wav" "-ar" "22050" "-ac" "1"))
 
