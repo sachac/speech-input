@@ -27,7 +27,7 @@
 (require 'speech-input-transcribe)
 (require 'speech-input-vad)
 
-(defcustom speech-input-filler-words '("uh" "um")
+(defcustom speech-input-filler-words '("uh" "um" "ah")
   "List of filler words."
   :type '(repeat string)
   :group 'speech-input)
