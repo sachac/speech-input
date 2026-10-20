@@ -45,8 +45,6 @@
 	(interactive (list (if (region-active-p)
 												 (buffer-substring (region-beginning) (region-end))
 											 (buffer-substring (line-beginning-position) (line-end-position)))))
-	(setq text (and text (replace-regexp-in-string (format "^%s[\\.,?!]? " (regexp-opt speech-input-filler-words))
-																								 "" text)))
 	(let (done entry func num-args)
 		(while (and text (not (string= text "")) (not done))
 			(setq entry

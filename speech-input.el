@@ -32,6 +32,13 @@
   :type '(repeat string)
   :group 'speech-input)
 
+;;;###autoload
+(defun speech-input-remove-filler-words (text)
+  "Remove ums and uhs."
+  (and text (replace-regexp-in-string
+						 (format "^%s[\\.,?!]? " (regexp-opt speech-input-filler-words))
+						 "" text)))
+
 (defvar speech-input-recording-process nil)
 (defvar speech-input-recording-command '("ffmpeg" "-y" "-f" "pulse" "-i" "default" "-f" "wav" "-ar" "22050" "-ac" "1"))
 
